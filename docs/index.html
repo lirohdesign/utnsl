@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>utnsl — Projects</title>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;margin:32px;color:#111}
+    header{margin-bottom:24px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
+    .card{padding:16px;border:1px solid #e6e6e6;border-radius:8px;background:#fff}
+    .card a{color:#0366d6;text-decoration:none;font-weight:600}
+    footer{margin-top:40px;color:#666;font-size:0.9rem}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>utnsl — Projects</h1>
+    <p>Single-file HTML projects. Click a tile to open the project.</p>
+  </header>
+
+  <main>
+    <div id="projects" class="grid">Loading…</div>
+  </main>
+
+  <footer>
+    <p>To add a project: put your single-file HTML in <code>/projects</code> and add an entry to <code>projects.json</code>. See the repository <a href="/">README</a> for full instructions.</p>
+  </footer>
+
+  <script>
+    async function load() {
+      try {
+        const res = await fetch('./projects/projects.json', {cache: 'no-cache'});
+        if (!res.ok) throw new Error('projects.json not found');
+        const list = await res.json();
+        const container = document.getElementById('projects');
+        container.innerHTML = '';
+        list.forEach(p => {
+          const el = document.createElement('div'); el.className='card';
+          el.innerHTML = `<div><a href="./projects/${encodeURIComponent(p.file)}" target="_blank" rel="noopener">${escapeHtml(p.title)}</a></div><div style="margin-top:8px;color:#444">${escapeHtml(p.description||'')}</div>`;
+          container.appendChild(el);
+        });
+      } catch (e) {
+        document.getElementById('projects').textContent = 'No projects found. Add files to /docs/projects and update projects.json.';
+      }
+    }
+    function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"})[c]); }
+    load();
+  </script>
+</body>
+</html>
