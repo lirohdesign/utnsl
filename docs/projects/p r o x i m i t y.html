@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>p r o x i m i t y</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts - Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* Custom styling to complement Tailwind */
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        
+        /* Highlighted Word Styling */
+        .highlight {
+            background-color: #dcfce7; /* green-100 */
+            color: #166534; /* green-800 */
+            font-weight: 600;
+            padding: 2px 4px;
+            border-radius: 4px;
+        }
+
+        .word-match-info {
+            font-size: 0.75em;
+            color: #4b5563; /* gray-600 */
+            margin-left: 5px;
+        }
+
+        /* Toggle switch specific styling (minimal, as most is Tailwind) */
+        .toggle-checkbox:checked {
+            right: 0;
+            background-color: #2563eb; /* blue-600 */
+            border-color: #2563eb; /* blue-600 */
+        }
+
+        .toggle-checkbox {
+            transition: all 0.2s ease-in-out;
+        }
+
+        .toggle-label {
+            background-color: #d1d5db; /* gray-300 - This is your current unchecked color */
+        }
+        
+        /* New styling for unchecked state (customize to your desired color) */
+        .toggle-checkbox:not(:checked) + .toggle-label {
+            background-color: #47f502bd;
+            border-color:#47f502bd;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 antialiased p-8 min-h-screen flex flex-col items-center">
+
+    <div class="max-w-4xl w-full bg-white shadow-lg rounded-lg p-6 sm:p-8 space-y-6">
+        <h1 class="text-3xl font-bold text-gray-900 mb-6 text-center">p r o x i m i t y</h1>
+
+        <!-- Algorithm Toggle Switch moved to the Header as requested -->
+        <div class="flex items-center space-x-2 justify-center mb-6"> <!-- Centered the toggle -->
+            <label for="algorithm_toggle" class="text-sm font-medium text-gray-700">Matching Algorithm:</label>
+            <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                <input type="checkbox" name="algorithm_toggle" id="algorithm_toggle" onchange="toggleAlgorithm()"
+                    class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"/>
+                <label for="algorithm_toggle" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
+            </div>
+            <span id="algorithm_display_text" class="text-sm font-medium text-gray-700">N-gram Similarity</span>
+        </div>
+
+        <div class="flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-4">
+            <div class="flex-1">
+                <label for="keywords" class="block text-sm font-medium text-gray-700 mb-1">Keywords (one per line):</label>
+                <textarea id="keywords" placeholder="Enter keywords (one per line)" rows="8"
+                          class="w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-3 text-sm"></textarea>
+            </div>
+            <div class="flex-1">
+                <label for="text_to_search" class="block text-sm font-medium text-gray-700 mb-1">Text to Search (one record per line):</label>
+                <textarea id="text_to_search" placeholder="Paste text to search (one record per line)" rows="8"
+                          class="w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-3 text-sm"></textarea>
+            </div>
+        </div>
+
+        <!-- Sensitivity Slider and Value Display - Centered above the button -->
+        <div class="flex flex-col items-center mb-4 max-w-xs mx-auto"> <!-- Added mx-auto here -->
+            <label for="sensitivity" class="block text-sm font-medium text-gray-700 mb-1">Match Sensitivity: <span id="sensitivity-value">70%</span></label>
+            <input type="range" id="sensitivity" min="50" max="100" value="70" step="10" oninput="updateSensitivityValue(this.value); highlightLines();"
+                class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700">
+        </div>
+
+
+        <!-- Highlight Matches Button - Centered below the slider -->
+        <div class="flex justify-center"> <!-- Centered the button -->
+            <button onclick="highlightLines()"
+                    class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 text-sm h-10">
+                Highlight Matches
+            </button>
+        </div>
+
+        <div id="results" class="mt-8 p-4 bg-gray-100 rounded-lg border border-gray-200 text-gray-800 prose prose-sm max-w-none">
+            <!-- Highlighted lines will appear here -->
+        </div> 
+    </div>
+
+    <script>
+        function updateSensitivityValue(value) {
+            document.getElementById('sensitivity-value').innerText = value + '%';
+        }
+
+        function toggleAlgorithm() {
+            const algorithmToggle = document.getElementById('algorithm_toggle');
+            const algorithmDisplayText = document.getElementById('algorithm_display_text');
+
+            if (algorithmToggle.checked) {
+                algorithmDisplayText.innerText = "N-gram Similarity";
+            } else {
+                algorithmDisplayText.innerText = "Levenshtein Distance";
+            }
+            highlightLines(); 
+        }
+
+
+    function highlightLines() {
+        const keywordsRaw = document.getElementById('keywords').value;
+        const textToSearchRaw = document.getElementById('text_to_search').value;
+        const resultsDiv = document.getElementById('results');
+        resultsDiv.innerHTML = '';
+
+        // Get the algorithm based on the toggle switch state
+        const algorithmToggle = document.getElementById('algorithm_toggle');
+        const selectedAlgorithm = algorithmToggle.checked ? 'ngram' : 'levenshtein';
+
+        const selectedSensitivity = parseInt(document.getElementById('sensitivity').value);
+
+        // Ngram size is removed as a separate control, default to 2
+        const ngramSize = 2; // Default to 2 since ngram_size_container is removed
+
+        const keywords = keywordsRaw.split('\n').filter(Boolean).map(kw => kw.trim().toLowerCase());
+        const lines = textToSearchRaw.split('\n');
+
+        if (!keywords.length || !lines.length || !textToSearchRaw.trim()) {
+            resultsDiv.innerHTML = '<p class="text-gray-500 italic">Enter keywords and text to see matches.</p>';
+            return;
+        }
+
+        lines.forEach(line => {
+            const p = document.createElement('p');
+            let highlightedLineHtml = '';
+
+            // Split by non-word characters to get individual words and delimiters
+            const wordsAndDelimiters = line.split(/(\W+)/g).filter(Boolean);
+
+            wordsAndDelimiters.forEach(segment => {
+                let bestMatchPercentage = 0;
+                let matchedKeyword = '';
+                let isWord = segment.match(/\w+/);
+                let foundMatch = false;
+
+                if (isWord) {
+                    for (const keyword of keywords) {
+                        const segmentLower = segment.toLowerCase();
+
+                        // 1. Check for perfect prefix match (always prioritized)
+                        if (segmentLower.startsWith(keyword)) {
+                            bestMatchPercentage = 100;
+                            matchedKeyword = keyword;
+                            foundMatch = true;
+                            highlightedLineHtml += `<span class="highlight">${segment}<span class="word-match-info"> (100% prefix match to "${keyword}")</span></span>`;
+                            break; // Exit keyword loop if a perfect prefix match is found
+                        }
+
+                        // 2. Apply the selected fuzzy matching algorithm
+                        let percentage = 0;
+                        if (selectedAlgorithm === 'ngram') {
+                            percentage = calculateNGramSimilarity(segmentLower, keyword, ngramSize);
+                        } else if (selectedAlgorithm === 'levenshtein') {
+                            const distance = levenshteinDistance(segmentLower, keyword);
+                            const maxLength = Math.max(segmentLower.length, keyword.length);
+                            if (maxLength > 0) {
+                                percentage = ((maxLength - distance) / maxLength) * 100;
+                            } else {
+                                percentage = 100; // Both strings are empty
+                            }
+                        }
+
+                        if (percentage >= selectedSensitivity) {
+                            if (percentage > bestMatchPercentage) {
+                                bestMatchPercentage = percentage;
+                                matchedKeyword = keyword;
+                            }
+                            foundMatch = true;
+                        }
+                    }
+
+                    if (!foundMatch) {
+                        highlightedLineHtml += segment;
+                    } else if (bestMatchPercentage < 100) {
+                        // Only highlight if not already done by prefix match and if a match was found
+                        // We check if the segment itself isn't already inside a highlight span,
+                        // though the break statement for 100% match should handle this.
+                        highlightedLineHtml += `<span class="highlight">${segment}<span class="word-match-info"> (${bestMatchPercentage.toFixed(2)}% to "${matchedKeyword}")</span></span>`;
+                    }
+                } else {
+                    highlightedLineHtml += segment;
+                }
+            });
+
+            p.innerHTML = highlightedLineHtml;
+            resultsDiv.appendChild(p);
+        });
+        if (resultsDiv.innerHTML === '') {
+            resultsDiv.innerHTML = '<p class="text-gray-500 italic">No matches found for the given criteria.</p>';
+        }
+    }
+
+
+    // Call toggleNgramSize on page load to set the initial state
+    document.addEventListener("DOMContentLoaded", toggleNgramSize);
+
+    // Function to generate N-grams from a string
+    function generateNGrams(text, n) {
+        const ngrams = [];
+        const paddedText = '_'.repeat(n - 1) + text + '_'.repeat(n - 1); 
+        for (let i = 0; i <= paddedText.length - n; i++) {
+            ngrams.push(paddedText.substring(i, i + n));
+        }
+        return new Set(ngrams); 
+    }
+
+    // Function to calculate Levenshtein Distance
+    function levenshteinDistance(str1, str2) {
+        const len1 = str1.length;
+        const len2 = str2.length;
+        // Initialize matrix with 0s. 
+        // Note: You had a small error in the previous matrix initialization.
+        // It should be a 2D array, and matrix[i][0] and matrix[0][j] should be initialized
+        // in separate loops if not done during creation. 
+        // This corrected version will ensure proper initialization.
+        let matrix = [];
+        for (let i = 0; i <= len1; i++) {
+            matrix[i] = [i];
+        }
+        for (let j = 0; j <= len2; j++) {
+            matrix[0][j] = j;
+        }
+
+        for (let i = 1; i <= len1; i++) {
+            for (let j = 1; j <= len2; j++) {
+                if (str1[i - 1] === str2[j - 1]) {
+                    matrix[i][j] = matrix[i - 1][j - 1];
+                } else {
+                    matrix[i][j] = Math.min(
+                        matrix[i - 1][j] + 1,      // Deletion
+                        matrix[i][j - 1] + 1,      // Insertion
+                        matrix[i - 1][j - 1] + 1   // Substitution
+                    );
+                }
+            }
+        }
+        return matrix[len1][len2];
+    }
+
+    // Function to calculate N-gram similarity (Jaccard index variant)
+    function calculateNGramSimilarity(s1, s2, n) {
+        if (s1 === s2) return 100;
+        if (!s1.length || !s2.length) return 0;
+
+        const ngrams1 = generateNGrams(s1.toLowerCase(), n);
+        const ngrams2 = generateNGrams(s2.toLowerCase(), n);
+
+        const intersection = new Set([...ngrams1].filter(ngram => ngrams2.has(ngram)));
+        const union = new Set([...ngrams1, ...ngrams2]);
+
+        if (union.size === 0) return 100; 
+
+        const similarity = (intersection.size / union.size) * 100;
+        return similarity;
+    }
+</script>
+
+</body>
+</html>
